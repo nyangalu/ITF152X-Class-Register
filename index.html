@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ITF152X Attendance Register</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{
+    --ink:#1c2430;
+    --paper:#f3f1ea;
+    --card:#ffffff;
+    --line:#e2ddd0;
+    --accent:#12283f;
+    --accent-ink:#ffffff;
+    --gold:#c98a2c;
+    --present:#1f7a4d;
+    --present-bg:#e6f4ec;
+    --absent:#9a2f26;
+    --absent-bg:#fbe9e7;
+    --muted:#767268;
+    --radius:10px;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased;}
+  header.top{
+    background:var(--accent);color:var(--accent-ink);padding:18px 24px;
+    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;
+  }
+  header.top .title{font-size:1.15rem;font-weight:700;letter-spacing:.2px;}
+  header.top .sub{font-size:.8rem;opacity:.85;margin-top:2px;}
+  .wrap{max-width:1150px;margin:0 auto;padding:20px 16px 60px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:18px;}
+  .card.accent{border-left:4px solid var(--gold);}
+  .card h2{margin:0 0 4px;font-size:1rem;font-weight:700;}
+  .card .card-desc{margin:0 0 14px;color:var(--muted);font-size:.82rem;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+  .field{display:flex;flex-direction:column;gap:4px;}
+  .field label{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;}
+  input[type=text], input[type=date], input[type=search], input[type=number], select{
+    border:1px solid var(--line);border-radius:8px;padding:9px 10px;font-size:.9rem;background:#fff;color:var(--ink);
+  }
+  input:focus, select:focus{outline:2px solid var(--accent);outline-offset:1px;}
+  button{border:none;border-radius:8px;padding:9px 16px;font-size:.83rem;font-weight:600;cursor:pointer;transition:filter .15s;white-space:nowrap;}
+  button:hover{filter:brightness(0.95);}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-primary{background:var(--accent);color:#fff;}
+  .btn-outline{background:#fff;border:1px solid var(--line);color:var(--ink);}
+  .btn-outline.danger{color:var(--absent);border-color:var(--absent);}
+  .btn-outline.ok{color:var(--present);border-color:var(--present);}
+
+  .pill-row{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0;}
+  .pill{background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:.8rem;color:var(--muted);display:flex;gap:6px;align-items:center;}
+  .pill b{color:var(--ink);font-size:.9rem;}
+  .pill.present b{color:var(--present);}
+  .pill.absent b{color:var(--absent);}
+
+  .action-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;}
+
+  .list-card{padding:0;overflow:hidden;}
+  .list-head{
+    display:grid;grid-template-columns:34px 1fr 80px 120px 170px;
+    gap:8px;padding:12px 16px;font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;
+    color:var(--muted);font-weight:700;border-bottom:1px solid var(--line);background:#faf9f5;
+  }
+  .list-row{
+    display:grid;grid-template-columns:34px 1fr 80px 120px 170px;
+    gap:8px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);
+  }
+  .list-row:last-child{border-bottom:none;}
+  .list-row:hover{background:#faf9f5;}
+  .row-num{color:var(--muted);font-size:.8rem;}
+  .row-student .surname{font-weight:700;font-size:.92rem;}
+  .row-student .subline{font-size:.76rem;color:var(--muted);letter-spacing:.3px;}
+  .row-pct{font-size:.85rem;color:var(--muted);}
+  .row-num-col{font-size:.82rem;color:var(--ink);}
+  .segmented{display:inline-flex;border-radius:8px;overflow:hidden;border:1px solid var(--line);}
+  .segmented button{
+    border:none;padding:7px 14px;font-size:.78rem;font-weight:700;background:#fff;color:var(--muted);border-radius:0;
+  }
+  .segmented button.active.present{background:var(--present);color:#fff;}
+  .segmented button.active.absent{background:var(--absent);color:#fff;}
+  .segmented button:not(.active):hover{background:#f4f2ec;}
+
+  .toast{
+    position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    background:var(--ink);color:#fff;padding:10px 18px;border-radius:8px;
+    font-size:.85rem;opacity:0;pointer-events:none;transition:opacity .25s, bottom .25s;
+    z-index:999;max-width:90vw;text-align:center;
+  }
+  .toast.show{opacity:1;bottom:34px;}
+  .toast.error{background:var(--absent);}
+  .toast.ok{background:var(--present);}
+
+  #qrBox{display:flex;flex-direction:column;align-items:flex-start;gap:10px;}
+  #qrCanvasWrap{background:#fff;padding:12px;border-radius:8px;border:1px solid var(--line);align-self:center;}
+  .muted{color:var(--muted);font-size:.82rem;}
+  .empty-msg{padding:24px;text-align:center;color:var(--muted);font-size:.85rem;}
+
+  .checkin-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .checkin-card{background:#fff;border-radius:16px;padding:28px;max-width:420px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.08);border:1px solid var(--line);}
+  .checkin-card h1{font-size:1.1rem;margin:0 0 4px;color:var(--accent);}
+  .checkin-card p.desc{color:var(--muted);font-size:.85rem;margin-top:0;}
+  .checkin-card .field{margin-bottom:12px;width:100%;}
+  .checkin-card input{width:100%;padding:11px 12px;font-size:1rem;}
+  .checkin-status{margin-top:14px;padding:12px;border-radius:8px;font-size:.88rem;display:none;}
+  .checkin-status.ok{display:block;background:var(--present-bg);color:var(--present);}
+  .checkin-status.err{display:block;background:var(--absent-bg);color:var(--absent);}
+  .checkin-status.pending{display:block;background:#eef2f6;color:var(--muted);}
+  .hidden{display:none !important;}
+  footer.foot{text-align:center;color:var(--muted);font-size:.75rem;padding:20px;}
+
+  @media(max-width:760px){
+    .list-head{display:none;}
+    .list-row{grid-template-columns:1fr;gap:2px;padding:12px 16px;}
+    .row-num{display:none;}
+    .row-pct::before{content:"Attendance: ";color:var(--muted);}
+    .row-num-col::before{content:"Student no: ";color:var(--muted);}
+    .segmented{margin-top:6px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ LECTURER DASHBOARD ============ -->
+<div id="lecturerView">
+  <header class="top">
+    <div>
+      <div class="title">ITF152X · Information Technology 1A</div>
+      <div class="sub">CPUT · Engineering &amp; Built Environ. · Industrial &amp; Systems Eng · Online Attendance Register</div>
+    </div>
+    <div id="setupWarning" class="sub hidden" style="color:#ffd7d1;">⚠ Backend URL not configured — edit APPS_SCRIPT_URL in index.html</div>
+  </header>
+
+  <div class="wrap">
+
+    <div class="card">
+      <div class="row">
+        <div class="field">
+          <label for="dateInput">Session date</label>
+          <input type="date" id="dateInput">
+        </div>
+        <div class="field" style="flex:1;min-width:220px;">
+          <label for="searchInput">Search student</label>
+          <input type="search" id="searchInput" placeholder="Student number, surname, first name">
+        </div>
+        <button class="btn-outline" id="clearSearchBtn">Clear search</button>
+      </div>
+
+      <div class="pill-row">
+        <span class="pill">Total <b id="statTotal">0</b></span>
+        <span class="pill present">Present <b id="statPresent">0</b></span>
+        <span class="pill absent">Absent <b id="statAbsent">0</b></span>
+        <span class="pill">Showing <b id="statShowing">0</b></span>
+        <span class="pill">Class avg. attendance <b id="statAvg">—</b></span>
+      </div>
+
+      <div class="action-row">
+        <button class="btn-outline ok" id="markAllPresent">Mark all visible present</button>
+        <button class="btn-outline danger" id="markAllAbsent">Mark all visible absent</button>
+        <button class="btn-outline" id="refreshPctBtn">Refresh attendance %</button>
+        <span style="flex:1;"></span>
+        <button class="btn-primary" id="saveBtn">Save</button>
+        <button class="btn-primary" id="exportRegisterBtn">Export register (CSV)</button>
+      </div>
+    </div>
+
+    <div class="card accent">
+      <h2>Period summary</h2>
+      <p class="card-desc">Download an attendance summary across every session recorded between two dates.</p>
+      <div class="row">
+        <div class="field">
+          <label for="startDate">From</label>
+          <input type="date" id="startDate">
+        </div>
+        <div class="field">
+          <label for="endDate">To</label>
+          <input type="date" id="endDate">
+        </div>
+        <button class="btn-primary" id="downloadCsvBtn">Download period summary (CSV)</button>
+      </div>
+    </div>
+
+    <div class="card accent">
+      <h2>Live sign-in (QR code)</h2>
+      <p class="card-desc">Display this on screen for the session date selected above. Students scan it with their own phone — no account or app needed — to sign themselves present. The code checks each student's location against yours, so it only works for someone actually in the room.</p>
+      <div class="row">
+        <div class="field">
+          <label for="radiusInput">Room radius (metres)</label>
+          <input type="number" id="radiusInput" value="60" min="10" max="500" style="width:120px;">
+        </div>
+        <div class="field">
+          <label for="sessionLengthSelect">Session length</label>
+          <select id="sessionLengthSelect">
+            <option value="15">15 minutes</option>
+            <option value="30">30 minutes</option>
+            <option value="60">1 hour</option>
+            <option value="120">2 hours</option>
+            <option value="180" selected>3 hours</option>
+          </select>
+        </div>
+        <button class="btn-primary" id="generateQrBtn">Start live sign-in</button>
+      </div>
+      <div id="qrBox" style="margin-top:14px;">
+        <div id="qrCanvasWrap" class="hidden"></div>
+        <p class="muted" id="qrMeta"></p>
+      </div>
+    </div>
+
+    <div class="card list-card">
+      <div class="list-head">
+        <span>#</span><span>Student</span><span>Att. %</span><span>Student No.</span><span>Status</span>
+      </div>
+      <div id="rosterList"></div>
+      <div class="empty-msg hidden" id="rosterEmpty">No students match your search.</div>
+    </div>
+
+  </div>
+  <footer class="foot">ITF152X Attendance Register — data stored in the linked Google Sheet.</footer>
+</div>
+
+<!-- ============ STUDENT QR CHECK-IN VIEW ============ -->
+<div id="checkinView" class="checkin-screen hidden">
+  <div class="checkin-card">
+    <h1>ITF152X — Class Sign-In</h1>
+    <p class="desc" id="checkinDateLine">Confirm your attendance for today's class.</p>
+
+    <div id="checkinForm">
+      <div class="field">
+        <label for="ciNumber">Student number</label>
+        <input type="text" id="ciNumber" inputmode="numeric" placeholder="e.g. 260933481">
+      </div>
+      <div class="field">
+        <label for="ciSurname">Surname</label>
+        <input type="text" id="ciSurname" placeholder="e.g. Babedi">
+      </div>
+      <div class="field">
+        <label for="ciInitials">Initials</label>
+        <input type="text" id="ciInitials" placeholder="e.g. NF">
+      </div>
+      <button class="btn-primary" id="ciSubmitBtn" style="width:100%;">Sign the register</button>
+    </div>
+
+    <div class="checkin-status pending" id="ciStatus">Getting your location…</div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+/* ============================================================
+   CONFIGURE THIS: paste your deployed Apps Script Web App URL.
+   ============================================================ */
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyQ5YLTRvMOZvdOVDgtyOJEwfjcv17HAXByOY3iuWvK9S63DbpIGRCjYn7slQOcB-YVQA/exec";
+
+/* ---------------- shared helpers ---------------- */
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function toast(msg, type){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' '+type : '');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=> t.className='toast', 3000);
+}
+async function apiGet(action, params){
+  const url = new URL(APPS_SCRIPT_URL);
+  url.searchParams.set('action', action);
+  Object.entries(params||{}).forEach(([k,v])=>url.searchParams.set(k,v));
+  const res = await fetch(url.toString());
+  return res.json();
+}
+async function apiPost(action, body){
+  const res = await fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    headers: {'Content-Type':'text/plain;charset=utf-8'}, // avoids CORS preflight on Apps Script
+    body: JSON.stringify(Object.assign({action}, body))
+  });
+  return res.json();
+}
+function getOrCreateDeviceId(){
+  let id = localStorage.getItem('itf152x_device_id');
+  if(!id){
+    id = 'dev-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem('itf152x_device_id', id);
+  }
+  return id;
+}
+function getLocation(){
+  return new Promise((resolve, reject)=>{
+    if(!navigator.geolocation){ reject(new Error('Geolocation not supported on this device/browser.')); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({lat: pos.coords.latitude, lng: pos.coords.longitude}),
+      err => reject(err),
+      { enableHighAccuracy:true, timeout:12000, maximumAge:0 }
+    );
+  });
+}
+
+/* ============================================================
+   MODE ROUTING: ?checkin=SESSIONCODE switches to student view
+   ============================================================ */
+const urlParams = new URLSearchParams(window.location.search);
+const checkinCode = urlParams.get('checkin');
+
+if (checkinCode) {
+  document.getElementById('lecturerView').classList.add('hidden');
+  document.getElementById('checkinView').classList.remove('hidden');
+  runCheckinFlow(checkinCode);
+} else {
+  if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('PASTE_') === 0) {
+    document.getElementById('setupWarning').classList.remove('hidden');
+  }
+  initLecturerView();
+}
+
+/* ============================================================
+   STUDENT CHECK-IN FLOW
+   ============================================================ */
+async function runCheckinFlow(code){
+  const statusEl = document.getElementById('ciStatus');
+  const dateLine = document.getElementById('checkinDateLine');
+  const formEl = document.getElementById('checkinForm');
+  const setStatus = (msg, cls) => { statusEl.textContent = msg; statusEl.className = 'checkin-status ' + cls; };
+
+  let location;
+  try { location = await getLocation(); }
+  catch (err) {
+    setStatus('Location access is required to confirm you are in the classroom. Please allow location access and reload this page.', 'err');
+    formEl.classList.add('hidden');
+    return;
+  }
+
+  let sessionInfo;
+  try { sessionInfo = await apiGet('getSession', {code}); }
+  catch(err){
+    setStatus('Could not reach the register. Check your internet connection.', 'err');
+    formEl.classList.add('hidden');
+    return;
+  }
+  if (!sessionInfo.found) {
+    setStatus('This QR code is not recognised. Ask your lecturer to generate a new one.', 'err');
+    formEl.classList.add('hidden'); return;
+  }
+  if (!sessionInfo.active) {
+    setStatus('This QR code has expired. Ask your lecturer to generate a new one.', 'err');
+    formEl.classList.add('hidden'); return;
+  }
+  dateLine.textContent = 'Confirm your attendance for the class on ' + sessionInfo.date + '.';
+  setStatus('Ready. Fill in your details below and tap "Sign the register".', 'pending');
+
+  document.getElementById('ciSubmitBtn').addEventListener('click', async () => {
+    const number = document.getElementById('ciNumber').value.trim();
+    const surname = document.getElementById('ciSurname').value.trim();
+    const initials = document.getElementById('ciInitials').value.trim();
+    if (!number || !surname || !initials) {
+      setStatus('Please fill in your student number, surname and initials.', 'err');
+      return;
+    }
+    document.getElementById('ciSubmitBtn').disabled = true;
+    setStatus('Submitting…', 'pending');
+
+    let freshLocation;
+    try { freshLocation = await getLocation(); } catch(e){ freshLocation = location; }
+
+    try {
+      const result = await apiPost('studentCheckin', {
+        sessionCode: code, studentNumber: number, surname: surname, initials: initials,
+        lat: freshLocation.lat, lng: freshLocation.lng, deviceId: getOrCreateDeviceId()
+      });
+      if (result.success) {
+        setStatus('✔ ' + result.message, 'ok');
+        formEl.classList.add('hidden');
+      } else {
+        setStatus('✖ ' + result.message, 'err');
+        document.getElementById('ciSubmitBtn').disabled = false;
+      }
+    } catch(err) {
+      setStatus('Something went wrong submitting your attendance. Please try again.', 'err');
+      document.getElementById('ciSubmitBtn').disabled = false;
+    }
+  });
+}
+
+/* ============================================================
+   LECTURER DASHBOARD
+   ============================================================ */
+let rosterData = [];
+let currentDate = todayStr();
+
+function initLecturerView(){
+  document.getElementById('dateInput').value = currentDate;
+  document.getElementById('startDate').value = currentDate;
+  document.getElementById('endDate').value = currentDate;
+
+  document.getElementById('dateInput').addEventListener('change', () => loadRegister());
+  document.getElementById('searchInput').addEventListener('input', renderRoster);
+  document.getElementById('clearSearchBtn').addEventListener('click', () => { document.getElementById('searchInput').value=''; renderRoster(); });
+  document.getElementById('markAllPresent').addEventListener('click', () => { visibleStudents().forEach(s=>s.status='Present'); renderRoster(); });
+  document.getElementById('markAllAbsent').addEventListener('click', () => { visibleStudents().forEach(s=>s.status='Absent'); renderRoster(); });
+  document.getElementById('refreshPctBtn').addEventListener('click', refreshAttendancePercentages);
+  document.getElementById('saveBtn').addEventListener('click', saveRegister);
+  document.getElementById('exportRegisterBtn').addEventListener('click', exportRegisterCsv);
+  document.getElementById('generateQrBtn').addEventListener('click', generateQr);
+  document.getElementById('downloadCsvBtn').addEventListener('click', downloadPeriodSummary);
+
+  loadRegister();
+}
+
+function visibleStudents(){
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  if (!q) return rosterData;
+  return rosterData.filter(s =>
+    s.studentNumber.toLowerCase().includes(q) ||
+    s.surname.toLowerCase().includes(q) ||
+    s.firstName.toLowerCase().includes(q) ||
+    s.initials.toLowerCase().includes(q)
+  );
+}
+
+async function loadRegister(){
+  currentDate = document.getElementById('dateInput').value || todayStr();
+  document.getElementById('rosterList').innerHTML = '<div class="empty-msg">Loading…</div>';
+  try {
+    const data = await apiGet('getRegister', {date: currentDate});
+    if (data.error) throw new Error(data.error);
+    rosterData = data.map(s => Object.assign({pct: null}, s));
+    renderRoster();
+  } catch(err) {
+    toast('Failed to load register: ' + err.message, 'error');
+    document.getElementById('rosterList').innerHTML = '<div class="empty-msg">Could not load data. Check APPS_SCRIPT_URL.</div>';
+  }
+}
+
+function renderRoster(){
+  const list = document.getElementById('rosterList');
+  const filtered = visibleStudents();
+  list.innerHTML = '';
+  document.getElementById('rosterEmpty').classList.toggle('hidden', filtered.length > 0);
+
+  filtered.forEach((s, idx) => {
+    const row = document.createElement('div');
+    row.className = 'list-row';
+    row.innerHTML = `
+      <span class="row-num">${idx+1}</span>
+      <span class="row-student">
+        <div class="surname">${s.surname}</div>
+        <div class="subline">${s.firstName} · ${s.initials}</div>
+      </span>
+      <span class="row-pct">${s.pct === null || s.pct === undefined ? '—' : s.pct + '%'}</span>
+      <span class="row-num-col">${s.studentNumber}</span>
+      <span class="segmented" data-num="${s.studentNumber}">
+        <button type="button" class="present-btn ${s.status==='Present'?'active present':''}">Present</button>
+        <button type="button" class="absent-btn ${s.status==='Absent'?'active absent':''}">Absent</button>
+      </span>
+    `;
+    row.querySelector('.present-btn').addEventListener('click', () => { s.status='Present'; renderRoster(); });
+    row.querySelector('.absent-btn').addEventListener('click', () => { s.status='Absent'; renderRoster(); });
+    list.appendChild(row);
+  });
+
+  updateStats(filtered.length);
+}
+
+function updateStats(showingCount){
+  const total = rosterData.length;
+  const present = rosterData.filter(s=>s.status==='Present').length;
+  const absent = total - present;
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statPresent').textContent = present;
+  document.getElementById('statAbsent').textContent = absent;
+  document.getElementById('statShowing').textContent = showingCount;
+
+  const withPct = rosterData.filter(s => typeof s.pct === 'number');
+  if (withPct.length) {
+    const avg = withPct.reduce((sum,s)=>sum+s.pct,0) / withPct.length;
+    document.getElementById('statAvg').textContent = Math.round(avg*10)/10 + '%';
+  } else {
+    document.getElementById('statAvg').textContent = '—';
+  }
+}
+
+async function saveRegister(){
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  try {
+    const records = rosterData.map(s => ({studentNumber: s.studentNumber, status: s.status}));
+    const result = await apiPost('saveRegister', {date: currentDate, records, markedBy: 'Lecturer'});
+    if (result.error) throw new Error(result.error);
+    toast('Register saved for ' + currentDate + ' (' + result.saved + ' students).', 'ok');
+  } catch(err) {
+    toast('Save failed: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save';
+  }
+}
+
+// Pulls each student's all-time attendance % (from first recorded session to today)
+// and populates the Att. % column + the Class avg. attendance stat.
+async function refreshAttendancePercentages(){
+  const btn = document.getElementById('refreshPctBtn');
+  btn.disabled = true;
+  btn.textContent = 'Refreshing…';
+  try {
+    const data = await apiGet('getSummary', {start: '2000-01-01', end: todayStr()});
+    if (data.error) throw new Error(data.error);
+    const pctByNumber = {};
+    data.rows.forEach(r => pctByNumber[r.studentNumber] = r.percentage);
+    rosterData.forEach(s => { s.pct = pctByNumber[s.studentNumber] ?? 0; });
+    renderRoster();
+    toast('Attendance percentages updated (' + data.totalSessions + ' session(s) to date).', 'ok');
+  } catch(err) {
+    toast('Could not refresh attendance %: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Refresh attendance %';
+  }
+}
+
+function exportRegisterCsv(){
+  const rows = [['Student Number','Surname','Initials','First Name','Status','Attendance %']];
+  rosterData.forEach(s => rows.push([s.studentNumber, s.surname, s.initials, s.firstName, s.status, s.pct ?? '']));
+  downloadCsv_(rows, `ITF152X_register_${currentDate}.csv`);
+}
+
+async function generateQr(){
+  const btn = document.getElementById('generateQrBtn');
+  const wrap = document.getElementById('qrCanvasWrap');
+  const meta = document.getElementById('qrMeta');
+  const radius = Number(document.getElementById('radiusInput').value) || 60;
+  const minutes = Number(document.getElementById('sessionLengthSelect').value) || 180;
+
+  btn.disabled = true;
+  btn.textContent = 'Getting your location…';
+  try {
+    const loc = await getLocation();
+    btn.textContent = 'Generating…';
+    const result = await apiPost('createSession', {
+      date: currentDate, lat: loc.lat, lng: loc.lng,
+      radiusMeters: radius, sessionMinutes: minutes
+    });
+    if (result.error) throw new Error(result.error);
+
+    const checkinUrl = window.location.origin + window.location.pathname + '?checkin=' + result.sessionCode;
+    wrap.innerHTML = '';
+    wrap.classList.remove('hidden');
+    new QRCode(wrap, { text: checkinUrl, width: 200, height: 200 });
+    meta.textContent = `Session ${result.sessionCode} for ${result.date} — room radius ${result.radiusMeters}m, valid for ${result.sessionMinutes} minutes.`;
+    toast('Live sign-in started. Display the QR code for students to scan.', 'ok');
+  } catch(err) {
+    toast('Could not start live sign-in: ' + (err.message || 'location access is required'), 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Start live sign-in';
+  }
+}
+
+async function downloadPeriodSummary(){
+  const start = document.getElementById('startDate').value;
+  const end = document.getElementById('endDate').value;
+  if (!start || !end) { toast('Please choose both a start and end date.', 'error'); return; }
+  const btn = document.getElementById('downloadCsvBtn');
+  btn.disabled = true;
+  btn.textContent = 'Building…';
+  try {
+    const data = await apiGet('getSummary', {start, end});
+    if (data.error) throw new Error(data.error);
+    const rows = [['Student Number','Surname','Initials','First Name','Sessions Present','Total Sessions','Attendance %']];
+    data.rows.forEach(r => rows.push([r.studentNumber, r.surname, r.initials, r.firstName, r.sessionsPresent, r.totalSessions, r.percentage]));
+    downloadCsv_(rows, `ITF152X_summary_${start}_to_${end}.csv`);
+    toast(`Downloaded summary — ${data.totalSessions} session(s) between ${start} and ${end}.`, 'ok');
+  } catch(err) {
+    toast('Failed to build summary: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Download period summary (CSV)';
+  }
+}
+
+function downloadCsv_(rows, filename){
+  const csv = rows.map(row => row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
